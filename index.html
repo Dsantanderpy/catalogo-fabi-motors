@@ -953,6 +953,7 @@ function renderDestacados(){
         <div class="dest-anio">${a.anio||'—'}${a.km?' · 🛣 '+a.km+' km':''}</div>
         ${a.condicion?`<div style="font-size:11px;color:var(--apagado);margin-bottom:4px">${a.condicion}</div>`:''}
         <div class="dest-precio">${formatPrecio(a.precio)}</div>
+        <div class="btns" style="margin-top:14px"><button class="bwa" onclick="event.stopPropagation();consultarWA('${a.id}')">💬 Consultar por WhatsApp</button></div>
       </div>
     </div>`).join('');
 }
@@ -985,6 +986,7 @@ function cardHTML(a){
       ${prev.length?`<div class="cval">${prev.map(p=>`<div class="vi"><span class="vc">✓</span><span>${p.trim().replace(/^•\s*/,'')}</span></div>`).join('')}${mas?'<div class="vmore">+ más detalles...</div>':''}</div>`:''}
       <div class="cprecio">${formatPrecio(a.precio)}</div>
       <div class="chint">Tocar para ver ficha →</div>
+      <div class="btns" style="margin-top:14px"><button class="bwa" onclick="event.stopPropagation();consultarWA('${a.id}')">💬 Consultar por WhatsApp</button></div>
       ${isAdmin?`<div class="cadmin" onclick="event.stopPropagation()">
         <button class="bedit" onclick="abrirForm('${a.id}')">✏ Editar</button>
         <button class="bdel" onclick="eliminarAuto('${a.id}')">✕</button>
@@ -1316,6 +1318,11 @@ function copiarWA(id){
   navigator.clipboard.writeText(txt).catch(()=>{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();});
   showToast('✓ Texto copiado para WhatsApp');
 }
+function consultarWA(id){
+  const a=autos.find(x=>x.id===id);if(!a)return;
+  const txt=`Hola, ¿qué tal?\n\nMe interesa el ${a.marca} ${a.modelo} ${a.anio||''}.\n\n¿Sigue disponible?`;
+  window.open('https://wa.me/595987233002?text='+encodeURIComponent(txt),'_blank');
+}
 
 function cerrar(id){document.getElementById(id).classList.remove('on');}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600);}
@@ -1327,7 +1334,7 @@ window.abrirForm=abrirForm;window.guardarAuto=guardarAuto;window.eliminarAuto=el
 window.verFicha=verFicha;window.toggleVendido=toggleVendido;window.guardarDatosVenta=guardarDatosVenta;
 window.abrirFormEntrega=abrirFormEntrega;window.guardarEntrega=guardarEntrega;window.eliminarEntrega=eliminarEntrega;window.verEntrega=verEntrega;
 window.cerrar=cerrar;window.cambiarFoto=cambiarFoto;window.verFotoFull=verFotoFull;window.navegarFoto=navegarFoto;
-window.copiarWA=copiarWA;window.filtrar=filtrar;window.limpiarFil=limpiarFil;window.renderVentas=renderVentas;window.limpiarVF=limpiarVF;window.renderDestacados=renderDestacados;
+window.copiarWA=copiarWA;window.consultarWA=consultarWA;window.filtrar=filtrar;window.limpiarFil=limpiarFil;window.renderVentas=renderVentas;window.limpiarVF=limpiarVF;window.renderDestacados=renderDestacados;
 
 showToast('Cargando catálogo...');
 cargar();
