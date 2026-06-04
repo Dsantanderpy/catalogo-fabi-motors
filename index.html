@@ -688,6 +688,8 @@ body{background:radial-gradient(circle at 12% 0%,rgba(255,122,26,.08),transparen
 .fi-f,.fi{background:rgba(255,255,255,.74)!important;border:1px solid rgba(39,37,35,.11)!important;color:#242424!important;border-radius:14px!important}
 .fi-f:focus,.fi:focus{border-color:rgba(255,122,26,.42)!important;box-shadow:0 0 0 3px rgba(255,122,26,.10)!important}
 .btn-clear,.bout,.bedit{background:rgba(255,255,255,.58)!important;border:1px solid rgba(39,37,35,.12)!important;color:#4a4640!important;border-radius:14px!important}
+.bshare{background:#272523!important;color:#fff!important;border:1px solid rgba(255,122,26,.72)!important;border-radius:14px!important;box-shadow:0 10px 22px rgba(39,37,35,.14)!important;transition:transform .2s ease,background .2s ease,border-color .2s ease,box-shadow .2s ease!important}
+.bshare:hover{background:#ff7a1a!important;color:#fff!important;border-color:#ff7a1a!important;transform:translateY(-2px)!important;box-shadow:0 14px 28px rgba(255,122,26,.24)!important}
 .brojo{background:linear-gradient(135deg,#ff9b4a,#ff7a1a)!important;color:#171717!important;border-radius:14px!important}.bdel{border-radius:14px!important}
 .nos-wrap{max-width:820px!important}.nos-t{color:#242424!important}.nos-p{color:rgba(36,34,32,.64)!important}.nos-icon-box{background:rgba(255,122,26,.11)!important;border:1px solid rgba(255,122,26,.22)!important}
 .modal{background:#fffaf3!important;border:1px solid rgba(39,37,35,.10)!important;color:#242424!important;border-radius:26px!important}
@@ -915,7 +917,7 @@ const db = getFirestore(app);
 const DOC = doc(db,"catalogo","datos");
 
 const PASS="Fabi2026**";
-let autos=[],entregas=[],isAdmin=false,editId=null,editEntregaId=null,galeriaFotos=[],fotoActiva=0,cargaOk=false;
+let autos=[],entregas=[],isAdmin=false,editId=null,editEntregaId=null,galeriaFotos=[],fotoActiva=0,cargaOk=false,fichaDesdeDeepLink=false;
 
 async function cargar(){
   try{const s=await getDoc(DOC);if(s.exists()){const d=s.data();autos=d.autos||[];entregas=d.entregas||[];}cargaOk=true;}catch(e){console.error(e);alert('No se pudo cargar el catálogo. Los guardados quedan bloqueados para proteger los datos. Revisá tu conexión e intentá recargar la página.');}
@@ -1188,8 +1190,10 @@ async function guardarAuto(){
 
 async function eliminarAuto(id){if(!confirm('¿Eliminar?'))return;const autosAnteriores=autos;autos=autos.filter(a=>a.id!==id);if(!await guardar()){autos=autosAnteriores;return;}render();showToast('Eliminado');}
 
-function verFicha(id){
+function verFicha(id,desdeDeepLink=false){
   const a=autos.find(x=>x.id===id);if(!a)return;
+  fichaDesdeDeepLink=desdeDeepLink;
+  actualizarURLVehiculo(id);
   const pts=(a.validacion||'').split('\n').filter(l=>l.trim());
   const fotos=parseFotos(a);
   galeriaFotos=a.foto?[a.foto,...fotos]:fotos;fotoActiva=0;
@@ -1201,6 +1205,8 @@ function verFicha(id){
     ?`<img class="gal-main" id="gal-main" src="${galeriaFotos[0]}" alt="" onclick="verFotoFull()">${galeriaFotos.length>1?`<div class="thumbs">${galeriaFotos.map((f,i)=>`<img class="thumb${i===0?' act':''}" src="${f}" alt="" onclick="cambiarFoto(${i})" id="thumb-${i}">`).join('')}</div>`:''}`
     :`<div class="gal-vacio">Sin foto</div>`;
   const valH=pts.length?`<div class="fic-val"><div class="fic-vl">¿Por qué este auto?</div>${pts.map(p=>`<div class="fic-vi"><span style="color:var(--verde);flex-shrink:0">✓</span><span>${p.trim().replace(/^•\s*/,'')}</span></div>`).join('')}</div>`:'';
+  const consultaBtn=`<button class="bwa" onclick="consultarWA('${id}')">💬 Consultar por WhatsApp</button>`;
+  const compartirBtn=`<button class="bshare" onclick="compartirVehiculo('${id}')">↗ Compartir vehículo</button>`;
   const copyBtn=pts.length?`<button class="bwa" onclick="copiarWA('${id}')">📋 Copiar texto para WhatsApp</button>`:'';
   const estadoColor=a.estado==='vendido'?'var(--verde)':a.estado==='senado'?'var(--dorado)':'var(--rojo)';
   const estadoLabel=a.estado==='vendido'?'VENDIDO':a.estado==='senado'?'SEÑADO':a.condicion;
@@ -1249,8 +1255,9 @@ function verFicha(id){
       </div>
     </div>
     ${valH}
+    <div class="btns" style="margin-top:14px">${consultaBtn}${compartirBtn}${copyBtn}</div>
     ${ventaBox}
-    <div class="btns" style="margin-top:14px">${copyBtn}<button class="bout" onclick="cerrar('ov-ficha')">Cerrar</button></div>
+    <div class="btns" style="margin-top:14px"><button class="bout" onclick="cerrar('ov-ficha')">Cerrar</button></div>
   `;
   document.getElementById('ov-ficha').classList.add('on');
 }
@@ -1334,21 +1341,70 @@ function consultarWA(id){
   const txt=`Hola, ¿qué tal?\n\nMe interesa el ${a.marca} ${a.modelo} ${a.anio||''}.\n\n¿Sigue disponible?`;
   window.open('https://wa.me/595987233002?text='+encodeURIComponent(txt),'_blank');
 }
+function getVehiculoURL(id){
+  const basePath=window.location.pathname.replace(/\/index\.html$/,'/');
+  const url=new URL(window.location.origin+basePath);
+  url.searchParams.set('vehiculo',id);
+  return url.toString();
+}
+function actualizarURLVehiculo(id){
+  history.replaceState(null,'',getVehiculoURL(id));
+}
+function limpiarURLVehiculo(){
+  const url=new URL(window.location.href);
+  if(!url.searchParams.has('vehiculo'))return;
+  url.searchParams.delete('vehiculo');
+  const clean=url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():'')+url.hash;
+  history.replaceState(null,'',clean);
+}
+async function compartirVehiculo(id){
+  const a=autos.find(x=>x.id===id);if(!a)return;
+  const url=getVehiculoURL(id);
+  const partes=[a.marca,a.modelo,a.anio].filter(Boolean).join(' ');
+  const detalles=[
+    partes,
+    a.km?'KM: '+a.km:null,
+    a.estado||a.condicion?'Estado: '+(a.estado||a.condicion):null,
+    a.precio?'Precio: '+formatPrecio(a.precio):null,
+    'Fabi Motors',
+    url
+  ].filter(Boolean);
+  const text=detalles.join('\n');
+  if(navigator.share){
+    try{await navigator.share({title:partes||'Fabi Motors',text,url});return;}catch(e){if(e.name==='AbortError')return;}
+  }
+  navigator.clipboard.writeText(text).then(()=>showToast('Enlace del vehículo copiado')).catch(()=>{
+    const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();showToast('Enlace del vehículo copiado');
+  });
+}
+function abrirVehiculoDesdeURL(){
+  const id=new URLSearchParams(window.location.search).get('vehiculo');
+  if(!id)return;
+  if(autos.some(a=>a.id===id))verFicha(id,true);
+}
 
-function cerrar(id){document.getElementById(id).classList.remove('on');}
+function cerrar(id){
+  document.getElementById(id).classList.remove('on');
+  if(id==='ov-ficha'){
+    const volverInicio=fichaDesdeDeepLink;
+    fichaDesdeDeepLink=false;
+    limpiarURLVehiculo();
+    if(volverInicio)goSec('inicio',document.querySelector('.nav-links .nb'));
+  }
+}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2600);}
 
-document.querySelectorAll('.ov,.foto-full-ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('on');}));
+document.querySelectorAll('.ov,.foto-full-ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)cerrar(ov.id);}));
 
 window.goSec=goSec;window.abrirLogin=abrirLogin;window.doLogin=doLogin;window.salirAdmin=salirAdmin;
 window.abrirForm=abrirForm;window.guardarAuto=guardarAuto;window.eliminarAuto=eliminarAuto;
 window.verFicha=verFicha;window.toggleVendido=toggleVendido;window.guardarDatosVenta=guardarDatosVenta;
 window.abrirFormEntrega=abrirFormEntrega;window.guardarEntrega=guardarEntrega;window.eliminarEntrega=eliminarEntrega;window.verEntrega=verEntrega;
 window.cerrar=cerrar;window.cambiarFoto=cambiarFoto;window.verFotoFull=verFotoFull;window.navegarFoto=navegarFoto;
-window.copiarWA=copiarWA;window.consultarWA=consultarWA;window.filtrar=filtrar;window.limpiarFil=limpiarFil;window.renderVentas=renderVentas;window.limpiarVF=limpiarVF;window.renderDestacados=renderDestacados;
+window.copiarWA=copiarWA;window.consultarWA=consultarWA;window.getVehiculoURL=getVehiculoURL;window.compartirVehiculo=compartirVehiculo;window.filtrar=filtrar;window.limpiarFil=limpiarFil;window.renderVentas=renderVentas;window.limpiarVF=limpiarVF;window.renderDestacados=renderDestacados;
 
 showToast('Cargando catálogo...');
-cargar();
+cargar().then(abrirVehiculoDesdeURL);
 </script>
 </body>
 </html>
